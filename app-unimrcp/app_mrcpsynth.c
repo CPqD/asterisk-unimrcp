@@ -58,6 +58,7 @@
 /* UniMRCP includes. */
 #include "app_datastore.h"
 #include "app_msg_process_dispatcher.h"
+#include "app_channel_methods.h"
 
 /*** DOCUMENTATION
 	<application name="MRCPSynth" language="en_US">
@@ -119,19 +120,6 @@ enum mrcpsynth_option_flags {
 	MRCPSYNTH_PERSISTENT_LIFETIME = (1 << 3),
 	MRCPSYNTH_DATASTORE_ENTRY     = (1 << 4),
 	MRCPSYNTH_STOP_BARGED_SYNTH   = (1 << 5)
-};
-
-/* The enumeration of option arguments. */
-enum mrcpsynth_option_args {
-	OPT_ARG_PROFILE             = 0,
-	OPT_ARG_INTERRUPT           = 1,
-	OPT_ARG_FILENAME            = 2,
-	OPT_ARG_PERSISTENT_LIFETIME = 3,
-	OPT_ARG_DATASTORE_ENTRY     = 4,
-	OPT_ARG_STOP_BARGED_SYNTH   = 5,
-
-	/* This MUST be the last value in this enum! */
-	OPT_ARG_ARRAY_SIZE = 6
 };
 
 /* The structure which holds the application options (including the MRCP params). */
@@ -207,8 +195,13 @@ static int synth_channel_speak(speech_channel_t *schannel, const char *content, 
 	apr_thread_mutex_lock(schannel->mutex);
 
 	if (schannel->state != SPEECH_CHANNEL_READY) {
-		apr_thread_mutex_unlock(schannel->mutex);
-		return -1;
+		ast_log(LOG_DEBUG, "(%s) Wait for completion of previous request\n", schannel->name);
+		/* Wait for completion of previous request. */
+		if (speech_channel_wait_for_ready(schannel) == FALSE) {
+			ast_log(LOG_DEBUG, "(%s) Speech channel not ready\n", schannel->name);
+			apr_thread_mutex_unlock(schannel->mutex);
+			return -1;
+		}
 	}
 
 	if ((mrcp_message = mrcp_application_message_create(schannel->session->unimrcp_session,

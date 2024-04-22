@@ -220,7 +220,8 @@ speech_channel_t *speech_channel_create(
 		schan->format = format;
 		schan->codec = ast_format_get_unicodec(format);
 		schan->rate = ast_format_get_sample_rate(format);
-		schan->bytes_per_sample = ast_format_get_bytes_per_sample(format);
+		schan->bits_per_sample = ast_format_get_bits_per_sample(format);
+
 		if (!session) {
 			if ((schan->session = (mrcp_associated_session_t *)apr_palloc(pool, sizeof(mrcp_associated_session_t))) == NULL) {
 				ast_log(LOG_ERROR, "Unable to allocate session associated structure\n");
@@ -266,8 +267,7 @@ speech_channel_t *speech_channel_create(
 			ast_log(LOG_ERROR, "(%s) Unable to create audio queue for channel\n",schan->name);
 			status = -1;
 		} else {
-			ast_log(LOG_DEBUG, "Created speech channel: Name=%s, Type=%s, Codec=%s, Rate=%u on %s\n",
-					schan->name, speech_channel_type_to_string(schan->type), schan->codec, schan->rate,
+			ast_log(LOG_DEBUG, "Created speech channel: Name=%s, Type=%s, Codec=%s, Rate=%u on %s\n", schan->name, speech_channel_type_to_string(schan->type), schan->codec, schan->rate,
 				ast_channel_name(chan));
 		}
 		
@@ -504,6 +504,9 @@ int speech_channel_open(speech_channel_t *schannel, ast_mrcp_profile_t *profile)
 		schannel->session->associated_channels++;
 		mrcp_application_session_object_set(schannel->session->unimrcp_session, schannel);
 	}
+
+	/* Set session name for logging purposes. */
+	mrcp_application_session_name_set(schannel->session->unimrcp_session, schannel->name);
 
 	/* Create audio termination and add to channel. */
 	if ((termination = speech_channel_create_mpf_termination(schannel)) == NULL) {
@@ -830,7 +833,7 @@ static APR_INLINE void ast_frame_fill(speech_channel_t *schannel, struct ast_fra
 	fr->frametype = AST_FRAME_VOICE;
 	ast_frame_set_format(fr, schannel->format);
 	fr->datalen = size;
-	fr->samples = size / schannel->bytes_per_sample;
+	fr->samples = 8 * size / schannel->bits_per_sample;
 	ast_frame_set_data(fr, data);
 	fr->mallocd = 0;
 	fr->offset = AST_FRIENDLY_OFFSET;

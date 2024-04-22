@@ -273,9 +273,13 @@ int recog_channel_start(speech_channel_t *schannel, const char *name, int start_
 	apr_thread_mutex_lock(schannel->mutex);
 
 	if (schannel->state != SPEECH_CHANNEL_READY) {
-		ast_log(LOG_ERROR, "Channel not ready!\n");
-		apr_thread_mutex_unlock(schannel->mutex);
-		return -1;
+		ast_log(LOG_DEBUG, "(%s) Wait for completion of previous request\n", schannel->name);
+		/* Wait for completion of previous request. */
+		if (speech_channel_wait_for_ready(schannel) == FALSE) {
+			ast_log(LOG_DEBUG, "(%s) Speech channel not ready\n", schannel->name);
+			apr_thread_mutex_unlock(schannel->mutex);
+			return -1;
+		}
 	}
 
 	if (schannel->data == NULL) {
@@ -413,9 +417,13 @@ int recog_channel_load_grammar(speech_channel_t *schannel, const char *name, gra
 	apr_thread_mutex_lock(schannel->mutex);
 
 	if (schannel->state != SPEECH_CHANNEL_READY) {
-		ast_log(LOG_ERROR, "Channel not ready!\n");
-		apr_thread_mutex_unlock(schannel->mutex);
-		return -1;
+		ast_log(LOG_DEBUG, "(%s) Wait for completion of previous request\n", schannel->name);
+		/* Wait for completion of previous request. */
+		if (speech_channel_wait_for_ready(schannel) == FALSE) {
+			ast_log(LOG_DEBUG, "(%s) Speech channel not ready\n", schannel->name);
+			apr_thread_mutex_unlock(schannel->mutex);
+			return -1;
+		}
 	}
 
 	/* If inline, use DEFINE-GRAMMAR to cache it on the server. */
@@ -454,9 +462,7 @@ int recog_channel_load_grammar(speech_channel_t *schannel, const char *name, gra
 			return -1;
 		}
 
-		apr_thread_cond_timedwait(schannel->cond, schannel->mutex, globals.speech_channel_timeout);
-
-		if (schannel->state != SPEECH_CHANNEL_READY) {
+		if (speech_channel_wait_for_ready(schannel) == FALSE) {
 			apr_thread_mutex_unlock(schannel->mutex);
 			return -1;
 		}

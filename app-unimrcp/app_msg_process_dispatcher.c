@@ -478,7 +478,7 @@ apt_bool_t stream_read(mpf_audio_stream_t *stream, mpf_frame_t *frame)
 {
 	speech_channel_t *schannel;
 
-	if (stream != NULL)
+	if (stream)
 		schannel = (speech_channel_t *)stream->obj;
 	else
 		schannel = NULL;
