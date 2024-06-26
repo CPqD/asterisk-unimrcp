@@ -27,10 +27,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y install tzdata
 RUN apt-get -y install locales
 
-ARG ASTERISK_VER=21.0.0
-
-# Asterisk
-
 RUN localedef -i en_US -f UTF-8 en_US.UTF-8
 ENV LANG=en_US.UTF-8
 
