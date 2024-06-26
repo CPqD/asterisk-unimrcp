@@ -97,6 +97,7 @@
 					<option name="sbs"> <para>Always stop barged synthesis request.</para></option>
 					<option name="vsp"> <para>Vendor-specific parameters.</para></option>
 					<option name="nif"> <para>NLSML instance format (either "xml" or "json") used by RECOG_INSTANCE().</para></option>
+					<option name="rnl"> <para>Replace new lines (0: disabled, otherwise: the character to replace new lines with) used by RECOG_INSTANCE().</para></option>
 				</optionlist>
 			</parameter>
 		</syntax>
@@ -142,7 +143,8 @@ enum sar_option_flags {
 	SAR_PERSISTENT_LIFETIME    = (1 << 7),
 	SAR_DATASTORE_ENTRY        = (1 << 8),
 	SAR_STOP_BARGED_SYNTH      = (1 << 9),
-	SAR_INSTANCE_FORMAT        = (1 << 10)
+	SAR_INSTANCE_FORMAT        = (1 << 10),
+	SAR_REPLACE_NEW_LINES      = (1 << 11)
 };
 
 /* The enumeration of plocies for the use of input timers. */
@@ -209,8 +211,13 @@ static int synth_channel_speak(speech_channel_t *schannel, const char *content, 
 	apr_thread_mutex_lock(schannel->mutex);
 
 	if (schannel->state != SPEECH_CHANNEL_READY) {
-		apr_thread_mutex_unlock(schannel->mutex);
-		return -1;
+		ast_log(LOG_DEBUG, "(%s) Wait for completion of previous request\n", schannel->name);
+		/* Wait for completion of previous request. */
+		if (speech_channel_wait_for_ready(schannel) == FALSE) {
+			ast_log(LOG_DEBUG, "(%s) Speech channel not ready\n", schannel->name);
+			apr_thread_mutex_unlock(schannel->mutex);
+			return -1;
+		}
 	}
 
 	if ((mrcp_message = mrcp_application_message_create(schannel->session->unimrcp_session, schannel->unimrcp_channel, SYNTHESIZER_SPEAK)) == NULL) {
@@ -421,6 +428,9 @@ static int synthandrecog_option_apply(mrcprecogverif_options_t *options, const c
 	} else if (strcasecmp(key, "nif") == 0) {
 		options->flags |= SAR_INSTANCE_FORMAT;
 		options->params[OPT_ARG_INSTANCE_FORMAT] = value;
+	} else if (strcasecmp(key, "rnl") == 0) {
+		options->flags |= SAR_REPLACE_NEW_LINES;
+		options->params[OPT_ARG_REPLACE_NEW_LINES] = value;
 	} else {
 		ast_log(LOG_WARNING, "Unknown option: %s\n", key);
 	}
@@ -433,7 +443,7 @@ static int synthandrecog_options_parse(char *str, mrcprecogverif_options_t *opti
 	char *s;
 	char *name, *value;
 
-	if (!str) 
+	if (!str)
 		return 0;
 
 	if ((options->recog_hfs = apr_hash_make(pool)) == NULL) {
@@ -795,12 +805,21 @@ static int app_synthandrecog_exec(struct ast_channel *chan, ast_app_data data)
 		}
 	}
 
+	/* Check whether new lines shall be replaced */
+	if ((sar_options.flags & SAR_REPLACE_NEW_LINES) == SAR_REPLACE_NEW_LINES) {
+		if (!ast_strlen_zero(sar_options.params[OPT_ARG_REPLACE_NEW_LINES])) {
+			char ch = *sar_options.params[OPT_ARG_REPLACE_NEW_LINES];
+			ast_log(LOG_DEBUG, "(%s) Replace new lines: %c\n", recog_name, ch);
+			app_session->replace_new_lines = ch;
+		}
+	}
+
 	/* Get grammar delimiters. */
 	const char *grammar_delimiters = ",";
 	if ((sar_options.flags & SAR_GRAMMAR_DELIMITERS) == SAR_GRAMMAR_DELIMITERS) {
 		if (!ast_strlen_zero(sar_options.params[OPT_ARG_GRAMMAR_DELIMITERS])) {
 			grammar_delimiters = sar_options.params[OPT_ARG_GRAMMAR_DELIMITERS];
-			ast_log(LOG_DEBUG, "(%s) Grammar delimiters: %s\n", grammar_delimiters, recog_name);
+			ast_log(LOG_DEBUG, "(%s) Grammar delimiters: %s\n", recog_name, grammar_delimiters);
 		}
 	}
 	/* Parse the grammar argument into a sequence of grammars. */

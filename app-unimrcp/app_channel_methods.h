@@ -73,7 +73,8 @@ enum mrcprcogverif_option_flags {
 	MRCPRECOGVERIF_PERSISTENT_LIFETIME = (1 << 9),
 	MRCPRECOGVERIF_DATASTORE_ENTRY     = (1 << 10),
 	MRCPRECOGVERIF_INSTANCE_FORMAT     = (1 << 11),
-	MRCPRECOGVERIF_BUF_HND             = (1 << 12)
+	MRCPRECOGVERIF_REPLACE_NEW_LINES   = (1 << 12),
+	MRCPRECOGVERIF_BUF_HND             = (1 << 13)
 };
 
 /* The enumeration of option arguments. */
@@ -93,9 +94,10 @@ enum mrcprecogverif_option_args {
 	OPT_ARG_INSTANCE_FORMAT      = 12,
 	OPT_ARG_BUF_HND              = 13,
 	OPT_ARG_STOP_BARGED_SYNTH    = 14,
+	OPT_ARG_REPLACE_NEW_LINES    = 15,
 
 	/* This MUST be the last value in this enum! */
-	OPT_ARG_ARRAY_SIZE           = 15
+	OPT_ARG_ARRAY_SIZE           = 16
 };
 
 struct mrcprecogverif_options_t {
@@ -112,6 +114,13 @@ struct mrcprecogverif_options_t {
 };
 
 typedef struct mrcprecogverif_options_t mrcprecogverif_options_t;
+
+APR_INLINE apt_bool_t speech_channel_wait_for_ready(speech_channel_t *schannel)
+{
+	apr_thread_cond_timedwait(schannel->cond, schannel->mutex, globals.speech_channel_timeout);
+
+	return (schannel->state == SPEECH_CHANNEL_READY) ? TRUE : FALSE;
+}
 
 int channel_start_input_timers(speech_channel_t *schannel, mrcp_method_id method_id);
 int channel_set_start_of_input(speech_channel_t *schannel);

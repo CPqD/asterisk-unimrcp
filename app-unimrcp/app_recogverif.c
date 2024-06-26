@@ -126,6 +126,7 @@
 					<option name="vsprec"> <para>Vendor-specific parameters for recognition.</para></option>
 					<option name="vspver"> <para>Vendor-specific parameters for verify.</para></option>
 					<option name="nif"> <para>NLSML instance format (either "xml" or "json") used by RECOG_INSTANCE().</para></option>
+					<option name="rnl"> <para>Replace new lines (0: disabled, otherwise: the character to replace new lines with) used by RECOG_INSTANCE().</para></option>
 				</optionlist>
 			</parameter>
 		</syntax>
@@ -147,6 +148,8 @@
 		</see-also>
 	</application>
  ***/
+
+char * result_parser_get_attr(apr_pool_t *pool, const unsigned char *xml, const char* node_name, const char* attr_name);
 
 /* The name of the application. */
 static const char *app_recog = "MRCPRecogVerif";
@@ -291,6 +294,9 @@ static int mrcprecogverif_option_apply(mrcprecogverif_options_t *options, const 
 	} else if (strcasecmp(key, "bufh") == 0) {
 		options->flags |= MRCPRECOGVERIF_BUF_HND;
 		options->params[OPT_ARG_BUF_HND] = value;
+	} else if (strcasecmp(key, "rnl") == 0) {
+		options->flags |= MRCPRECOGVERIF_REPLACE_NEW_LINES;
+		options->params[OPT_ARG_REPLACE_NEW_LINES] = value;
 	} else {
 		ast_log(LOG_WARNING, "Unknown option: %s\n", key);
 	}
@@ -301,7 +307,7 @@ static int mrcprecogverif_option_apply(mrcprecogverif_options_t *options, const 
 static int mrcprecogverif_options_parse(char *str, mrcprecogverif_options_t *options, apr_pool_t *pool)
 {
 	char *s;
-	char *name, *value;
+	char *name, *value, *v_mode;
 
 	if (!str)
 		return 0;
@@ -353,14 +359,17 @@ static int mrcprecogverif_options_parse(char *str, mrcprecogverif_options_t *opt
 	}
 	while (str);
 
-	if (!apr_hash_get(options->verif_session_hfs, "Verification-Mode", APR_HASH_KEY_STRING))
+	if (!(v_mode = apr_hash_get(options->verif_session_hfs, "Verification-Mode", APR_HASH_KEY_STRING)))
 		return -1;
 
 	if (!apr_hash_get(options->verif_session_hfs, "Repository-URI", APR_HASH_KEY_STRING))
 		return -1;
 
-	if (!apr_hash_get(options->verif_session_hfs, "Voiceprint-Identifier", APR_HASH_KEY_STRING))
-		return -1;
+	if (!apr_hash_get(options->verif_session_hfs, "Voiceprint-Identifier", APR_HASH_KEY_STRING)) {
+		ast_log(LOG_DEBUG, "v_mode: %s\n", v_mode);
+		if (strcmp(v_mode, "enroll"))
+			return -1;
+	}
 
 	apr_hash_set(options->recog_hfs, "Ver-Buffer-Utterance", APR_HASH_KEY_STRING, "true");
 
@@ -615,6 +624,15 @@ static int app_recog_verif_exec(struct ast_channel *chan, ast_app_data data)
 				app_session->instance_format = NLSML_INSTANCE_FORMAT_XML;
 			else if (strcasecmp(format, "json") == 0)
 				app_session->instance_format = NLSML_INSTANCE_FORMAT_JSON;
+		}
+	}
+
+	/* Check whether new lines shall be replaced */
+	if ((mrcprecogverif_options.flags & MRCPRECOGVERIF_REPLACE_NEW_LINES) == MRCPRECOGVERIF_REPLACE_NEW_LINES) {
+		if (!ast_strlen_zero(mrcprecogverif_options.params[OPT_ARG_REPLACE_NEW_LINES])) {
+			char ch = *mrcprecogverif_options.params[OPT_ARG_REPLACE_NEW_LINES];
+			ast_log(LOG_DEBUG, "(%s) Replace new lines: %c\n", name, ch);
+			app_session->replace_new_lines = ch;
 		}
 	}
 
@@ -910,6 +928,7 @@ static int app_recog_verif_exec(struct ast_channel *chan, ast_app_data data)
 	const char *completion_cause = NULL;
 	const char *result = NULL;
 	const char *waveform_uri = NULL;
+	char *vp_id = NULL;
 
 	if (status == SPEECH_CHANNEL_STATUS_OK) {
 		int uri_encoded_results = 0;
@@ -1023,6 +1042,10 @@ static int app_recog_verif_exec(struct ast_channel *chan, ast_app_data data)
 				char *buf = apr_palloc(app_session->pool, len);
 				result = ast_uri_encode_http(result, buf, len);
 			}
+			vp_id = result_parser_get_attr(app_session->pool, result, "voiceprint", "id");
+			ast_log(LOG_NOTICE, "Result voiceprint id: %s\n", vp_id ? vp_id : "(null)");
+		} else {
+			ast_log(LOG_WARNING, "(%s) Unable to retrieve result\n", name);
 		}
 	} else {
 		if (channel_get_completion_cause(app_session->verif_channel, &completion_cause) != 0) {
@@ -1038,6 +1061,7 @@ static int app_recog_verif_exec(struct ast_channel *chan, ast_app_data data)
 
 	/* Result may not be available if recognition completed with nomatch, noinput, or other error cause. */
 	pbx_builtin_setvar_helper(chan, "VERIF_RESULT", result ? result : "");
+	pbx_builtin_setvar_helper(chan, "VP_ID", vp_id ? vp_id : "");
 
 	return mrcprecog_exit(chan, app_session, status);
 }

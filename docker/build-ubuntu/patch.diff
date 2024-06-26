@@ -1,0 +1,35 @@
+From 3130970f6e5f221c1071c8a285977ff9f1e2dc21 Mon Sep 17 00:00:00 2001
+From: Fabiano Zaruch Chinasso <fabiano.chinasso@ipinfusion.com>
+Date: Mon, 25 Sep 2023 09:31:18 -0300
+Subject: Fix coredump when two resources are in use and sharing audio buffer
+
+
+diff --git a/libs/mpf/src/mpf_mixer.c b/libs/mpf/src/mpf_mixer.c
+index a1ab1f9f..6f0a2de3 100644
+--- a/libs/mpf/src/mpf_mixer.c
++++ b/libs/mpf/src/mpf_mixer.c
+@@ -43,6 +43,7 @@ struct mpf_mixer_t {
+ static apt_bool_t mpf_frames_mix(mpf_frame_t *mix_frame, const mpf_frame_t *frame)
+ {
+ 	apr_size_t i;
++	apr_size_t sum = 0;
+ 	apr_int16_t *mix_buf = mix_frame->codec_frame.buffer;
+ 	const apr_int16_t *buf = frame->codec_frame.buffer;
+ 	apr_size_t samples = frame->codec_frame.size / sizeof(apr_int16_t);
+@@ -55,6 +56,7 @@ static apt_bool_t mpf_frames_mix(mpf_frame_t *mix_frame, const mpf_frame_t *fram
+ 		for(i=0; i<samples; i++) {
+ 			/* overflow MUST be considered */
+ 			mix_buf[i] = mix_buf[i] + buf[i];
++			sum += mix_buf[i];
+ 		}
+ 		mix_frame->type |= MEDIA_FRAME_TYPE_AUDIO;
+ 	}
+@@ -196,6 +198,8 @@ MPF_DECLARE(mpf_object_t*) mpf_mixer_create(
+ 			if(codec) {
+ 				/* set decoder before mixer */
+ 				mpf_audio_stream_t *decoder = mpf_decoder_create(source,codec,pool);
++				source->rx_descriptor->frame_duration = frame_duration;
++				mpf_audio_stream_rx_open(source,codec);
+ 				source = decoder;
+ 			}
+ 		}

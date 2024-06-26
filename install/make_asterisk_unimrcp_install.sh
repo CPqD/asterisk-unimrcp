@@ -56,7 +56,7 @@ echo "ASTERISK_UNIMRCP_DOC_DIR=$ASTERISK_UNIMRCP_DOC_DIR"
 
 APR_LIB_DIR=/usr/local/apr/lib
 SIP_LIB_DIR=/usr/local/lib
-lib_uni_version="0.7.0"
+lib_uni_version="0.8.0"
 lib_sip_version="0.6.0"
 lib_apr_version="0.5.2"
 lib_aprutil_version="0.5.4"

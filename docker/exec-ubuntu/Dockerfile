@@ -1,4 +1,5 @@
-FROM amd64/ubuntu:18.04
+ARG BASE_IMAGE=asterisk-unimrcp-build
+FROM $BASE_IMAGE
 
 RUN apt-get update && \
     apt-get -y install \
@@ -17,35 +18,14 @@ RUN apt-get update && \
     build-essential \
     libjansson-dev \
     libxml2-dev \
+    tcpdump \
+    rsync \
     uuid-dev && \
     apt-get autoremove -y
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y install tzdata
 RUN apt-get -y install locales
-
-ARG ASTERISK_VER=18.7.1
-
-# Asterisk
-RUN cd /tmp/ && \
-    git clone https://github.com/asterisk/asterisk.git
-
-RUN cd /tmp/asterisk/ && \
-    git checkout ${ASTERISK_VER} && \
-    ./bootstrap.sh && \
-    cd contrib/scripts/ && \
-    ./install_prereq install && \
-    ./install_prereq install-unpackaged
-
-RUN cd /tmp/asterisk/ && \
-    ./configure --with-jansson-bundled && \
-    make && \
-    make install && \
-    make samples && \
-    make config && \
-    make install-logrotate
-
-RUN make install-headers || echo "WARNING no-install-headers"
 
 RUN localedef -i en_US -f UTF-8 en_US.UTF-8
 ENV LANG=en_US.UTF-8
@@ -56,4 +36,4 @@ ENTRYPOINT ["/opt/start.sh"]
 
 CMD ["asterisk", "-vvvdddf", "-T", "-p"]
 
-LABEL modules="ubuntu:18.04,asterisk:${ASTERISK_VER}
+LABEL modules="ubuntu:22.04-asterisk:${ASTERISK_VER}"

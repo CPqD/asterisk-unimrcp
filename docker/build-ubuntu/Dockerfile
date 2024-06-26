@@ -1,4 +1,4 @@
-FROM amd64/ubuntu:18.04
+FROM amd64/ubuntu:22.04
 
 RUN apt-get update && \
     apt-get -y install \
@@ -6,6 +6,7 @@ RUN apt-get update && \
     autoconf \
     sudo \
     libtool \
+    pkg-config \
     git \
     curl \
     wget \
@@ -26,8 +27,8 @@ RUN apt-get -y install tzdata
 RUN apt-get -y install locales
 
 ARG UNIMRCP_DEPS=1.6.0
-ARG UNIMRCP_VER=1.7.0
-ARG ASTERISK_VER=18.7.1
+ARG UNIMRCP_VER=1.8.0
+ARG ASTERISK_VER=21.0.0
 
 # Install deps do unimrcp
 RUN UNIMRCP_DEPS_DASH=$(echo ${UNIMRCP_DEPS} | tr . -) && cd /tmp/ && \
@@ -36,11 +37,14 @@ RUN UNIMRCP_DEPS_DASH=$(echo ${UNIMRCP_DEPS} | tr . -) && cd /tmp/ && \
     cd unimrcp-deps-${UNIMRCP_DEPS} && \
     ./build-dep-libs.sh --silent
 
+COPY patch.diff /tmp
+
 # Install unimrcp
 RUN cd /tmp/ && \
     git clone https://github.com/unispeech/unimrcp.git && \
     cd unimrcp && \
     git checkout tags/unimrcp-${UNIMRCP_VER} && \
+    git apply /tmp/patch.diff && \
     ./bootstrap && \
     ./configure && \
     make -j 4 && \
