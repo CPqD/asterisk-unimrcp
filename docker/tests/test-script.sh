@@ -87,41 +87,42 @@ validate-capture()
   local clear=${12}
   local start=${13}
   local speak=${14}
-  local same_chid=${15}
+  local spk_res=${15}
+  local same_chid=${16}
   local error=0
 
   sleep 1
-  #log "Validate RECOGNIZE $recognize"
+  log "Validate RECOGNIZE $recognize"
   V=$(validate RECOGNIZE $recognize $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate RECOGNITION-COMPLETE $rec_result"
+  log "Validate RECOGNITION-COMPLETE $rec_result"
   V=$(validate RECOGNITION-COMPLETE $rec_result $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate VERIFY $verify"
+  log "Validate VERIFY $verify"
   V=$(validate VERIFY $verify $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate VERIFICATION-COMPLETE $ver_res"
+  log "Validate VERIFICATION-COMPLETE $ver_res"
   V=$(validate VERIFICATION-COMPLETE $ver_res $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate VERIFY-FROM-BUFFER $ver_buf"
+  log "Validate VERIFY-FROM-BUFFER $ver_buf"
   V=$(validate VERIFY-FROM-BUFFER $ver_buf $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate ROLLBACK $rollback"
+  log "Validate ROLLBACK $rollback"
   V=$(validate ROLLBACK $rollback $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate CLEAR-BUFFER $clear"
+  log "Validate CLEAR-BUFFER $clear"
   V=$(validate CLEAR-BUFFER $clear $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate START-SESSION $start"
+  log "Validate START-SESSION $start"
   V=$(validate START-SESSION $start $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate SPEAK $speak"
+  log "Validate SPEAK $speak"
   V=$(validate SPEAK $speak $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate SPEAK-COMPLETE $speak"
-  V=$(validate SPEAK-COMPLETE $speak $CAPTURE_FILE)
+  log "Validate SPEAK-COMPLETE $spk_res"
+  V=$(validate SPEAK-COMPLETE $spk_res $CAPTURE_FILE)
   [[ $V == 1 ]] && error=1
-  #log "Validate capture error=$error"
+  log "Validate capture error=$error"
   local same=$(compare_channel -e recog -e verify)
   log "Same chid: $same"
   [[ $same_chid != $same ]] && error=1
@@ -141,6 +142,7 @@ execute-test()
   log "Executing test $extension"
   docker exec ${ASTERISK_CONTAINER} bash -c ">${RESULT_FILE};echo '' >${RESULT_FILE}"
   sudo rm $CAPTURE_FILE
+  docker exec ${ASTERISK_CONTAINER} bash -c "[[ -f /tmp/cap.pcap ]] && rm /tmp/cap.pcap"
   docker exec ${ASTERISK_CONTAINER} tcpdump -i any -w /tmp/cap.pcap &
   
   run-test $audio $extension
@@ -163,26 +165,26 @@ execute-test()
 
 tests=(
 # dial                     Results                        Message capture
-#                         __________________     ______________________________________________
-# ext#  audio          recogs verifies synth recog rec-res ver ver-res buf rollback clear start speak same_chid
-  301 dois-audios.wav    1       1       0     1      1     0     1     1      0      0     1     0     1
-  302 dois-audios.wav    2       1       0     2      2     0     1     1      0      0     1     0     1
-  303 dois-audios-2.wav  2       1       0     2      2     0     1     1      0      1     1     0     1
-  304 dois-audios.wav    2       1       0     2      2     0     1     1      1      0     1     0     1
-  305 dois-audios.wav    2       1       0     2      2     1     1     0      0      1     1     0     1
-  306 tres-audios.wav    3       1       0     3      3     0     1     1      2      0     1     0     1
-  307 um-audio.wav       1       0       0     1      1     0     0     0      0      0     0     0     1
-  308 dois-audios.wav    2       0       0     2      2     0     0     0      0      0     0     0     1
-  309 um-audio.wav       0       1       0     0      0     1     1     0      0      0     1     0     1
-  310 dois-audios.wav    0       2       0     0      0     2     2     0      0      0     1     0     1
-  311 um-audio.wav       1       1       0     1      1     0     1     1      0      0     1     0     1
-  312 um-audio.wav       0       0       1     0      0     0     0     0      0      0     0     1     1
-  313 um-audio.wav       1       0       1     1      1     0     0     0      0      0     0     1     1
-  314 um-audio.wav       1       0       1     1      1     0     0     0      0      0     0     1     1
-  315 um-audio.wav       1       1       1     1      1     0     1     1      0      0     1     1     1
-  316 um-audio.wav       1       1       1     1      1     1     1     0      0      0     1     1     0
-  317 dois-audios.wav    1       1       0     1      1     1     1     0      0      0     1     0     0
-  318 dois-audios.wav    0       2       0     0      0     2     2     0      0      0     2     0     0
+#                       __________________     __________________________________________________________
+# ext#  audio         recogs verifies synth recog rec-res ver ver-res buf rollback clear start speak spk_res same_chid
+  301 dois-audios.wav   1       1       0     1      1     0     1     1      0      0     1     0     0         1
+  302 dois-audios.wav   2       1       0     2      2     0     1     1      0      0     1     0     0         1
+  303 dois-audios-2.wav 2       1       0     2      2     0     1     1      0      1     1     0     0         1
+  304 dois-audios.wav   2       1       0     2      2     0     1     1      1      0     1     0     0         1
+  305 dois-audios.wav   2       1       0     2      2     1     1     0      0      1     1     0     0         1
+  306 tres-audios.wav   3       1       0     3      3     0     1     1      2      0     1     0     0         1
+  307 um-audio.wav      1       0       0     1      1     0     0     0      0      0     0     0     0         1
+  308 dois-audios.wav   2       0       0     2      2     0     0     0      0      0     0     0     0         1
+  309 um-audio.wav      0       1       0     0      0     1     1     0      0      0     1     0     0         1
+  310 dois-audios.wav   0       2       0     0      0     2     2     0      0      0     1     0     0         1
+  311 um-audio.wav      1       1       0     1      1     0     1     1      0      0     1     0     0         1
+  312 um-audio.wav      0       0       1     0      0     0     0     0      0      0     0     1     1         1
+  313 um-audio.wav      1       0       1     1      1     0     0     0      0      0     0     1     1         1
+  314 um-audio.wav      1       0       1     1      1     0     0     0      0      0     0     1     1         1
+  315 um-audio.wav      1       1       1     1      1     0     1     1      0      0     1     1     1         1
+  316 um-audio.wav      1       1       1     1      1     1     1     0      0      0     1     1     1         0
+  317 dois-audios.wav   1       1       0     1      1     1     1     0      0      0     1     0     0         0
+  318 dois-audios.wav   0       2       0     0      0     2     2     0      0      0     2     0     0         0
 )
 test_count=${#tests[*]}
 i=0
@@ -204,13 +206,14 @@ do
   clear_pkt=${tests[$i]}; let i++
   start_pkt=${tests[$i]}; let i++
   speak_pkt=${tests[$i]}; let i++
+  spk_res_pkt=${tests[$i]}; let i++
   same_chid=${tests[$i]}; let i++
 
   for par in $@
   do
     if [[ $all = 1 || $par = $ext ]]; then
-      echo "Executing test: execute-test $ext $audio $recogs $verifies $synths $recog_pkt $rec_res_pkt $ver_pkt $ver_res_pkt $ver_buf_pkt $rollback_pkt $clear_pkt $start_pkt $speak_pkt $same_chid"
-      execute-test $ext $audio $recogs $verifies $synths $recog_pkt $rec_res_pkt $ver_pkt $ver_res_pkt $ver_buf_pkt $rollback_pkt $clear_pkt $start_pkt $speak_pkt $same_chid
+      echo "Executing test: execute-test $ext $audio $recogs $verifies $synths $recog_pkt $rec_res_pkt $ver_pkt $ver_res_pkt $ver_buf_pkt $rollback_pkt $clear_pkt $start_pkt $speak_pkt $spk_res_pkt $same_chid"
+      execute-test $ext $audio $recogs $verifies $synths $recog_pkt $rec_res_pkt $ver_pkt $ver_res_pkt $ver_buf_pkt $rollback_pkt $clear_pkt $start_pkt $speak_pkt $spk_res_pkt $same_chid
       continue
     fi
   done
