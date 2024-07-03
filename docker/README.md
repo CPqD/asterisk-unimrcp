@@ -62,7 +62,7 @@ In the folder asterisk-deb or asterisk-centos run the below command to build the
 ./build.sh
 ```
 
-It generates pakages for Asterisk version 18.7.1 in debian format or Asteris version 16.8
+It generates pakages for Asterisk version 21.0.0 in debian format or Asteris version 16.8
 in RPM format.
 The debian packages are generated in 'dist' folder.
 The RPM package is generated in RPMS folder.
